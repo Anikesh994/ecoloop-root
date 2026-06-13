@@ -1,91 +1,69 @@
 import os
 import sys
-from fastapi import FastAPI, HTTPException, status
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from dotenv import load_dotenv
 
-# Path safety baseline mapping for Windows systems
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-if CURRENT_DIR not in sys.path:
-    sys.path.insert(0, CURRENT_DIR)
+# Ensure app package is importable
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from ai_processing import simulate_computer_vision_assessment, calculate_second_life_routing
+from app.database import init_db
+from app.routers import auth, returns, marketplace, p2p, credits, analytics, predictions
 
-load_dotenv()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: create tables
+    await init_db()
+    print("[EcoLoop] Database initialized")
+    yield
+    # Shutdown
+    print("[EcoLoop] Shutting down")
+
 
 app = FastAPI(
-    title="EcoLoop AI - Second Life Commerce Engine",
-    description="Production-grade reverse-logistics orchestration platform.",
-    version="1.0.0"
+    title="EcoLoop AI - Circular Commerce Platform",
+    description="AWS-native intelligent ecosystem for sustainable product lifecycle management",
+    version="2.0.0",
+    lifespan=lifespan
 )
 
-# Global tracking array for analytics database metrics
-ALL_PROCESSED_RETURNS = []
-
-# --- THE CORS FIX: ALLOW YOUR FRONTEND TO COMMUNICATE ---
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permits port 5500 to cleanly cross over and talk to port 8000
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows POST requests
-    allow_headers=["*"],  # Allows tracking headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-class ReturnInitiateRequest(BaseModel):
-    userId: str = Field(..., examples=["usr_90210"])
-    orderId: str = Field(..., examples=["ord_883912"])
-    itemId: str = Field(..., examples=["itm_55410"])
-    contentType: str = Field(..., examples=["image/jpeg"])
+# Register routers
+app.include_router(auth.router)
+app.include_router(returns.router)
+app.include_router(marketplace.router)
+app.include_router(p2p.router)
+app.include_router(credits.router)
+app.include_router(analytics.router)
+app.include_router(predictions.router)
+
 
 @app.get("/")
-async def root_health_check():
+async def root():
     return {
+        "service": "ecoloop-ai-backend",
+        "version": "2.0.0",
         "status": "HEALTHY",
-        "service": "ecoloop-backend-core",
-        "aws_sync": "LOCAL_SIMULATION_ACTIVE"
+        "pillars": [
+            "AI Routing Engine",
+            "Smart Quality Grading",
+            "Personalized Recommendations",
+            "Green Credits & Incentives",
+            "Peer-to-Peer Resale",
+            "Predictive Return Prevention"
+        ]
     }
 
-@app.post("/v1/returns/{return_id}/process")
-async def process_return_ai(return_id: str, original_price: float):
-    try:
-        vision_results = simulate_computer_vision_assessment(image_key=f"raw-returns/{return_id}.jpg")
-        final_assessment = calculate_second_life_routing(
-            vision_data=vision_results, 
-            original_price=original_price
-        )
-        
-        # Bundle operational record for global analytics reporting
-        record = {
-            "returnId": return_id,
-            "assignedGrade": final_assessment["assignedGrade"],
-            "suggestedPrice": final_assessment["suggestedPrice"],
-            "greenCreditsEarned": final_assessment["greenCreditsEarned"]
-        }
-        ALL_PROCESSED_RETURNS.append(record)
-        
-        return {
-            "returnId": return_id,
-            "processing_status": "SUCCESS",
-            "payload": final_assessment
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Pipeline Execution Failure: {str(e)}"
-        )
 
-@app.get("/v1/analytics/summary")
-async def get_analytics_summary():
-    """
-    Calculates real-time reverse logistics impact metrics across all returns.
-    """
-    total_items = len(ALL_PROCESSED_RETURNS)
-    total_value_saved = sum(item["suggestedPrice"] for item in ALL_PROCESSED_RETURNS)
-    total_credits_issued = sum(item["greenCreditsEarned"] for item in ALL_PROCESSED_RETURNS)
-
-    return {
-        "totalItemsScanned": total_items,
-        "totalValueSaved": round(total_value_saved, 2),
-        "totalGreenCreditsDistributed": total_credits_issued
-    }
+@app.get("/health")
+async def health():
+    return {"status": "ok", "database": "connected", "environment": os.getenv("ENVIRONMENT", "dev")}
