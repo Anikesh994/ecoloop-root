@@ -1,0 +1,73 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: ecoloop-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://ecoloop:ecoloop_secure_pwd@db:5432/ecoloop
+      - JWT_SECRET=${JWT_SECRET:-production-secret-change-this-in-deployment}
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRY_MINUTES=60
+      - AWS_REGION=ap-south-1
+      - S3_BUCKET=ecoloop-media
+      - ENVIRONMENT=production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  frontend:
+    build: ./frontend
+    container_name: ecoloop-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: ecoloop-db
+    environment:
+      POSTGRES_DB: ecoloop
+      POSTGRES_USER: ecoloop
+      POSTGRES_PASSWORD: ecoloop_secure_pwd
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecoloop"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: ecoloop-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:
