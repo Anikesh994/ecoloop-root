@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoLoop AI - Returns Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col items-center justify-center p-6">
+
+    <div class="max-w-xl w-full bg-slate-800 rounded-2xl p-8 border border-slate-700 shadow-2xl">
+        <h1 class="text-3xl font-extrabold text-emerald-400 mb-2">EcoLoop AI</h1>
+        <p class="text-slate-400 mb-8">Second Life Commerce Engine — Asynchronous Evaluation</p>
+
+        <div class="space-y-4 mb-6">
+            <div>
+                <label class="block text-sm font-semibold mb-2 text-slate-300">Original Item Value (INR)</label>
+                <input id="itemPrice" type="number" value="10000" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-emerald-400 focus:outline-none focus:border-emerald-500 font-mono">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold mb-2 text-slate-300">Upload Return Item Condition Image</label>
+                <div class="border-2 border-dashed border-slate-600 hover:border-emerald-500 transition rounded-lg p-4 text-center bg-slate-900 cursor-pointer relative">
+                    <input type="file" id="itemImage" accept="image/*" onchange="previewSelectedImage(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    <div id="uploadPrompt" class="space-y-1 text-slate-400">
+                        <p class="text-sm"><span class="text-emerald-400 font-medium">Click to upload</span> or drag and drop</p>
+                        <p class="text-xs">PNG, JPG, or WEBP formats</p>
+                    </div>
+                    <img id="imagePreview" class="hidden mx-auto max-h-40 rounded-lg shadow-md border border-slate-700 mt-2">
+                </div>
+            </div>
+        </div>
+
+        <button onclick="triggerAiProcessingPipeline()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold p-4 rounded-lg transition duration-200 shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2">
+            <span>Scan & Evaluate Return Item</span>
+        </button>
+
+        <div id="resultBox" class="hidden mt-8 border-t border-slate-700 pt-6">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4">Pipeline Evaluation Summary</h3>
+            <div class="bg-slate-900 rounded-xl p-5 border border-slate-700/50 space-y-3 font-mono text-sm">
+                <div class="flex justify-between"><span class="text-slate-500">Return ID:</span> <span id="resId" class="text-slate-300"></span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Assigned Grade:</span> <span id="resGrade" class="text-amber-400 font-bold"></span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Suggested Value:</span> <span id="resPrice" class="text-emerald-400 font-bold"></span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Green Credits:</span> <span id="resCredits" class="text-blue-400"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Reads image raw memory buffers into your client browser frame directly
+        function previewSelectedImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('imagePreview').src = e.target.result;
+                    document.getElementById('imagePreview').classList.remove('hidden');
+                    document.getElementById('uploadPrompt').classList.add('hidden');
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function triggerAiProcessingPipeline() {
+            const price = document.getElementById('itemPrice').value;
+            const imageInput = document.getElementById('itemImage');
+            const resultBox = document.getElementById('resultBox');
+            const mockReturnId = "ret_usr902_itm554";
+
+            if (imageInput.files.length === 0) {
+                alert("Please attach a product condition photo before firing the AI assessment engine!");
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/v1/returns/${mockReturnId}/process?original_price=${price}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                document.getElementById('resId').innerText = data.returnId;
+                document.getElementById('resGrade').innerText = data.payload.assignedGrade;
+                document.getElementById('resPrice').innerText = "₹" + data.payload.suggestedPrice;
+                document.getElementById('resCredits').innerText = "+" + data.payload.greenCreditsEarned + " Points";
+                
+                resultBox.classList.remove('hidden');
+            } catch (err) {
+                alert("Connection failed! Ensure your FastAPI server terminal is currently running.");
+            }
+        }
+    </script>
+</body>
+</html>
