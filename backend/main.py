@@ -1,7 +1,7 @@
 import os
 import sys
 from fastapi import FastAPI, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware  # <-- IMPORTANT NEW IMPORT
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
@@ -19,6 +19,9 @@ app = FastAPI(
     description="Production-grade reverse-logistics orchestration platform.",
     version="1.0.0"
 )
+
+# Global tracking array for analytics database metrics
+ALL_PROCESSED_RETURNS = []
 
 # --- THE CORS FIX: ALLOW YOUR FRONTEND TO COMMUNICATE ---
 app.add_middleware(
@@ -51,6 +54,16 @@ async def process_return_ai(return_id: str, original_price: float):
             vision_data=vision_results, 
             original_price=original_price
         )
+        
+        # Bundle operational record for global analytics reporting
+        record = {
+            "returnId": return_id,
+            "assignedGrade": final_assessment["assignedGrade"],
+            "suggestedPrice": final_assessment["suggestedPrice"],
+            "greenCreditsEarned": final_assessment["greenCreditsEarned"]
+        }
+        ALL_PROCESSED_RETURNS.append(record)
+        
         return {
             "returnId": return_id,
             "processing_status": "SUCCESS",
@@ -61,3 +74,18 @@ async def process_return_ai(return_id: str, original_price: float):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Pipeline Execution Failure: {str(e)}"
         )
+
+@app.get("/v1/analytics/summary")
+async def get_analytics_summary():
+    """
+    Calculates real-time reverse logistics impact metrics across all returns.
+    """
+    total_items = len(ALL_PROCESSED_RETURNS)
+    total_value_saved = sum(item["suggestedPrice"] for item in ALL_PROCESSED_RETURNS)
+    total_credits_issued = sum(item["greenCreditsEarned"] for item in ALL_PROCESSED_RETURNS)
+
+    return {
+        "totalItemsScanned": total_items,
+        "totalValueSaved": round(total_value_saved, 2),
+        "totalGreenCreditsDistributed": total_credits_issued
+    }
