@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+import { analyticsAPI } from '../api/client'
 import { useNavigate } from 'react-router-dom'
 import { Package, Leaf, TrendingUp, Recycle, ShoppingBag, Users, ArrowUpRight, BarChart3 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
@@ -35,6 +36,11 @@ const activity = [
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const [liveStats, setLiveStats] = useState(null)
+
+  useEffect(() => {
+    analyticsAPI.summary().then(res => setLiveStats(res.data)).catch(() => {})
+  }, [])
   return (
     <div className="space-y-6 max-w-7xl">
       <div>
