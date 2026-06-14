@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Search, ShoppingCart, Shield, Leaf, CheckCircle } from 'lucide-react'
 
 const initialProducts = [
@@ -19,9 +19,17 @@ export default function Marketplace() {
   const [cat, setCat] = useState('All')
   const [grade, setGrade] = useState('All')
   const [cart, setCart] = useState([])
+  const [dynamicProducts, setDynamicProducts] = useState([])
+
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem('ecoloop_marketplace') || '[]')
+    setDynamicProducts(saved)
+  }, [])
+
+  const allProducts = [...dynamicProducts, ...initialProducts]
   const [toast, setToast] = useState(null)
 
-  const filtered = initialProducts.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) && (cat==='All'||p.category===cat) && (grade==='All'||p.grade===grade))
+  const filtered = allProducts.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) && (cat==='All'||p.category===cat) && (grade==='All'||p.grade===grade))
 
   const addToCart = (product) => {
     if (cart.find(c => c.id === product.id)) {
