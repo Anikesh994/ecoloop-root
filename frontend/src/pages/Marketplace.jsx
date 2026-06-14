@@ -29,7 +29,7 @@ export default function Marketplace() {
   const allProducts = [...dynamicProducts, ...initialProducts]
   const [toast, setToast] = useState(null)
 
-  const filtered = allProducts.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) && (cat==='All'||p.category===cat) && (grade==='All'||p.grade===grade))
+  const filtered = allProducts.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) && (cat==='All'||p.category===cat) && (grade==='All'||p.grade.includes(grade.replace('All',''))))
 
   const addToCart = (product) => {
     if (cart.find(c => c.id === product.id)) {
@@ -92,7 +92,7 @@ export default function Marketplace() {
           const inCart = cart.find(c=>c.id===p.id)
           return (
           <div key={p.id} className="bg-white dark:bg-slate-900 border theme-border rounded-xl p-4 flex flex-col hover:border-amber-500/30 card-hover">
-            <div className="w-full h-36 theme-input rounded-lg border theme-border flex items-center justify-center text-4xl mb-3">{p.img}</div>
+            <div className="w-full h-36 theme-input rounded-lg border theme-border flex items-center justify-center text-4xl mb-3 overflow-hidden">{p.img && p.img.length > 5 ? <img src={p.img} alt="" className="w-full h-full object-cover"/> : <span>{p.img}</span>}</div>
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${p.grade==='Grade A'?'bg-amber-500/10 text-amber-400 border-amber-500/20':p.grade==='Grade B'?'bg-blue-500/10 text-blue-400 border-blue-500/20':'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>{p.grade}</span>
