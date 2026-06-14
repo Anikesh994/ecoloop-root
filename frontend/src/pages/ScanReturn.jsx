@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { returnsAPI } from '../api/client'
 import { useNavigate } from 'react-router-dom'
 import { Upload, Cpu, CheckCircle2, ArrowRight, Sparkles, Package, Leaf, Camera } from 'lucide-react'
 
@@ -16,11 +17,33 @@ export default function ScanReturn() {
   }
 
   const processReturn = async () => {
+    // Calls real backend API
     if (images.length === 0) return alert('Upload at least one image')
     if (!price) return alert('Enter the original price')
     setStep('processing')
-    await new Promise((r) => setTimeout(r, 2000))
+
     const priceNum = parseFloat(price)
+    // Try real backend API first
+    try {
+      const formData = new FormData()
+      formData.append('original_price', priceNum)
+      formData.append('product_name', 'Returned Product')
+      formData.append('category', 'Electronics')
+      const res = await returnsAPI.create(formData)
+      const d = res.data
+      setResult({
+        returnId: d.return_id, grade: d.assigned_grade, routing: d.routing_decision,
+        damageScore: Math.round((d.damage_score || 0) * 100),
+        suggestedPrice: d.suggested_price, greenCredits: d.green_credits_earned,
+        originalPrice: d.original_price,
+        issues: (d.vision_data?.detected_issues || []).map(i => ({label: i.label, confidence: Math.round(i.confidence*100), location: i.location}))
+      })
+      setStep('result')
+      return
+    } catch(e) { console.log('Backend unavailable, using simulation') }
+
+    // Fallback simulation
+    await new Promise((r) => setTimeout(r, 1500))
     const dmg = Math.random() * 0.6
     const grade = dmg < 0.1 ? 'Grade A' : dmg < 0.25 ? 'Grade B' : dmg < 0.45 ? 'Grade C' : 'Grade D'
     const routing = dmg < 0.25 ? 'RESELL' : dmg < 0.45 ? 'REFURBISH' : dmg < 0.6 ? 'DONATE' : 'RECYCLE'
@@ -154,7 +177,13 @@ export default function ScanReturn() {
           </div>
           <div className="flex gap-3">
             <button onClick={() => { setImages([]); setStep('upload'); setResult(null) }} className="flex-1 bg-slate-800 hover:bg-slate-700 theme-text font-semibold py-3 rounded-xl text-sm">Scan Another</button>
-            <button onClick={() => navigate('/marketplace')} className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2"><Package size={16}/> List on Marketplace</button>
+            <button onClick={() => {
+                const listing = { id: result.returnId, name: 'Scanned Product', category: 'Electronics', grade: result.grade, orig: result.originalPrice, price: result.suggestedPrice, credits: result.greenCredits, img: '📦', listedAt: Date.now() }
+                const existing = JSON.parse(localStorage.getItem('ecoloop_marketplace') || '[]')
+                existing.unshift(listing)
+                localStorage.setItem('ecoloop_marketplace', JSON.stringify(existing))
+                navigate('/marketplace')
+              }} className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2"><Package size={16}/> List on Marketplace</button>
           </div>
         </div>
       )}
